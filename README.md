@@ -55,6 +55,17 @@ endpoints:
     enabled: true
 ```
 
+## Claude 配置参考
+
+```
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "dummy",
+    "ANTHROPIC_BASE_URL": "http://192.168.17.137:20128",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+```
+
 ### provider 对应的 Base URL
 
 | provider | Base URL |
