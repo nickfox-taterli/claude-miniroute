@@ -1,0 +1,27 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html>
+<head>
+<title>MiniRoute{{if .Title}} - {{.Title}}{{end}}</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js"></script>
+</head>
+<body>
+<nav>
+  <span class="brand">MiniRoute</span>
+  <a href="/" {{if eq .Page "overview"}}class="active"{{end}}>总览</a>
+  <a href="/requests" {{if eq .Page "requests"}}class="active"{{end}}>请求记录</a>
+  <a href="/endpoints" {{if eq .Page "endpoints"}}class="active"{{end}}>节点管理</a>
+  <div class="nav-right">
+    <button class="theme-toggle" id="theme-toggle" title="切换主题" onclick="toggleTheme()">🌙</button>
+  </div>
+</nav>
+<main>
+{{.Content}}
+</main>
+<script>initTheme();</script>
+</body>
+</html>
+{{end}}

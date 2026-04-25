@@ -1,0 +1,37 @@
+{{define "overview"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "body"}}
+<div class="section">
+  <h2>运行总览 <span class="auto-refresh"><span class="spinner">&#9696;</span> 每秒自动刷新</span></h2>
+  <div class="cards">
+    <div class="card"><div class="label">运行时长</div><div class="value" id="uptime">-</div></div>
+    <div class="card"><div class="label">近1小时请求数</div><div class="value" id="requests-1h">-</div></div>
+    <div class="card"><div class="label">近1小时成功数</div><div class="value green" id="success-1h">-</div></div>
+    <div class="card"><div class="label">成功率</div><div class="value" id="success-rate">-</div></div>
+    <div class="card"><div class="label">进行中请求</div><div class="value" id="inflight">0</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Token 用量(近1小时)</h2>
+  <div class="cards">
+    <div class="card"><div class="label">输入 Token</div><div class="value" id="input-tokens">0</div></div>
+    <div class="card"><div class="label">输出 Token</div><div class="value" id="output-tokens">0</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>节点状态</h2>
+  <table>
+    <thead><tr><th>名称</th><th>提供商</th><th>优先级</th><th>状态</th><th>近1小时请求</th><th>近1小时成功率</th></tr></thead>
+    <tbody id="endpoints-tbody"></tbody>
+  </table>
+</div>
+
+<script>
+loadOverview();
+startAutoRefresh();
+</script>
+{{end}}

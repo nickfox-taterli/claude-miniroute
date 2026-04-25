@@ -1,0 +1,60 @@
+server:
+  listen: "0.0.0.0:20128"
+  admin_listen: "0.0.0.0:20129"
+  request_timeout_ms: 300000
+  shutdown_grace_ms: 30000
+
+storage:
+  sqlite_path: "./data/miniroute.db"
+  max_parse_body_bytes: 16777216
+
+policy:
+  scheduler: "sequential"
+  retry: 1
+
+model_routes:
+  default: ["MiniMax-M2.7"]
+  routes:
+    - from: "claude-sonnet-*"
+      to:
+        - "MiniMax-M2.7"
+        - "GLM-5.1"
+        - "Qwen/Qwen2.5-Coder-32B-Instruct"
+        - "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+        - "openrouter/free"
+    - from: "claude-haiku-*"
+      to:
+        - "GLM-4.5-air"
+        - "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+        - "openrouter/free"
+
+endpoints:
+  - name: "minimax-1"
+    api_key: "your-minimax-api-key"
+    allow_model: ["MiniMax-M2.7"]
+    provider: "MiniMax"
+    rank: 2
+    alt_rank: 1
+    enabled: true
+
+  - name: "bigmodel-1"
+    api_key: "your-bigmodel-api-key"
+    allow_model: ["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-air"]
+    provider: "GLM"
+    rank: 1
+    alt_rank: 2
+    enabled: true
+
+  - name: "siliconflow-1"
+    api_key: "your-siliconflow-api-key"
+    allow_model: ["Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen/Qwen3-Coder-30B-A3B-Instruct"]
+    provider: "siliconflow"
+    rank: 3
+    enabled: true
+
+  - name: "openrouter-1"
+    api_key: "your-openrouter-api-key"
+    allow_model: ["openrouter/free"]
+    provider: "openrouter"
+    rank: 4
+    enabled: true

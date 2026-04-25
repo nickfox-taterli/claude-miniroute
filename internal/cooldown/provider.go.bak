@@ -1,0 +1,179 @@
+package cooldown
+
+import (
+	"encoding/json"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// MiniMaxCooldown implements provider-specific cooldown for MiniMax.
+// MiniMax quota cycles every 5 hours (0-5, 5-10, 10-15, 15-20, 20-24).
+// Error 1002 = rate limit (short cooldown).
+// Error 2056 = token plan exhausted (cooldown until next window + buffer).
+type MiniMaxCooldown struct {
+	RateLimitCooldown time.Duration
+	Buffer            time.Duration
+}
+
+func NewMiniMaxCooldown() *MiniMaxCooldown {
+	return &MiniMaxCooldown{
+		RateLimitCooldown: 30 * time.Second,
+		Buffer:            1 * time.Minute,
+	}
+}
+
+func (m *MiniMaxCooldown) CalculateCooldown(statusCode int, body []byte) time.Duration {
+	if statusCode != 429 {
+		return 0
+	}
+	code := parseMiniMaxErrorCode(body)
+	switch code {
+	case 1002:
+		return m.RateLimitCooldown
+	case 2056:
+		return timeUntilNextWindow() + m.Buffer
+	default:
+		return 60 * time.Second
+	}
+}
+
+func (m *MiniMaxCooldown) DefaultCooldown() time.Duration { return 60 * time.Second }
+
+func parseMiniMaxErrorCode(body []byte) int {
+	if len(body) == 0 {
+		return 0
+	}
+	var resp struct {
+		Error struct {
+			Code int `json:"code"`
+		} `json:"error"`
+		BaseResp struct {
+			StatusCode int `json:"status_code"`
+		} `json:"base_resp"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return 0
+	}
+	if resp.Error.Code != 0 {
+		return resp.Error.Code
+	}
+	return resp.BaseResp.StatusCode
+}
+
+func timeUntilNextWindow() time.Duration {
+	now := time.Now()
+	hour := now.Hour()
+	var nextHour int
+	switch {
+	case hour < 5:
+		nextHour = 5
+	case hour < 10:
+		nextHour = 10
+	case hour < 15:
+		nextHour = 15
+	case hour < 20:
+		nextHour = 20
+	default:
+		nextHour = 24
+	}
+	boundary := time.Date(now.Year(), now.Month(), now.Day(), nextHour, 0, 0, 0, now.Location())
+	if nextHour == 24 {
+		boundary = boundary.AddDate(0, 0, 1)
+	}
+	return time.Until(boundary)
+}
+
+// GLMCooldown implements provider-specific cooldown for GLM (Zhipu).
+// GLM returns nextResetTime in 429 error responses.
+// Cooldown = reset_time + buffer.
+type GLMCooldown struct {
+	Buffer time.Duration
+}
+
+func NewGLMCooldown() *GLMCooldown {
+	return &GLMCooldown{Buffer: 1 * time.Minute}
+}
+
+func (g *GLMCooldown) CalculateCooldown(statusCode int, body []byte) time.Duration {
+	if statusCode != 429 {
+		return 0
+	}
+	resetTime := parseGLMResetTime(body)
+	if !resetTime.IsZero() {
+		dur := time.Until(resetTime) + g.Buffer
+		if dur < g.Buffer {
+			dur = g.Buffer
+		}
+		return dur
+	}
+	return 60 * time.Second
+}
+
+func (g *GLMCooldown) DefaultCooldown() time.Duration { return 60 * time.Second }
+
+func parseGLMResetTime(body []byte) time.Time {
+	if len(body) == 0 {
+		return time.Time{}
+	}
+
+	// Try {"error":{"nextResetTime": <millis>}} first
+	var resp1 struct {
+		Error struct {
+			NextResetTime float64 `json:"nextResetTime"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &resp1); err == nil && resp1.Error.NextResetTime > 0 {
+		return time.UnixMilli(int64(resp1.Error.NextResetTime))
+	}
+
+	// Try top-level nextResetTime as milliseconds
+	var resp2 struct {
+		NextResetTime float64 `json:"nextResetTime"`
+	}
+	if err := json.Unmarshal(body, &resp2); err == nil && resp2.NextResetTime > 0 {
+		return time.UnixMilli(int64(resp2.NextResetTime))
+	}
+
+	// Try as RFC3339 string
+	var resp3 struct {
+		Error struct {
+			NextResetTime string `json:"nextResetTime"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &resp3); err == nil && resp3.Error.NextResetTime != "" {
+		if t, err := time.Parse(time.RFC3339, resp3.Error.NextResetTime); err == nil {
+			return t
+		}
+	}
+
+	// Some GLM 429 bodies only include reset datetime in error.message, e.g.:
+	// "已达到 5 小时的使用上限。您的限额将在 2026-04-23 17:22:07 重置。"
+	var resp4 struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &resp4); err == nil && resp4.Error.Message != "" {
+		if t := parseResetTimeFromMessage(resp4.Error.Message); !t.IsZero() {
+			return t
+		}
+	}
+
+	return time.Time{}
+}
+
+var datetimePattern = regexp.MustCompile(`\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}`)
+
+func parseResetTimeFromMessage(msg string) time.Time {
+	m := datetimePattern.FindString(msg)
+	if m == "" {
+		return time.Time{}
+	}
+	m = strings.TrimSpace(m)
+	t, err := time.ParseInLocation("2006-01-02 15:04:05", m, time.Local)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}

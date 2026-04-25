@@ -1,0 +1,21 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="section">
+  <h2>请求记录</h2>
+  <div class="filters">
+    <input type="text" id="filter-model" placeholder="模型筛选" onkeyup="loadRequests(false,true)">
+    <select id="filter-status" onchange="loadRequests(false,true)">
+      <option value="">全部状态</option>
+      <option value="success">成功</option>
+      <option value="fail">失败</option>
+    </select>
+    <button class="btn" onclick="loadRequests(false,true)">🔄 刷新</button>
+  </div>
+  <div class="request-stream" id="requests-container"></div>
+</div>
+
+<script>
+loadRequests(false,true);
+</script>
+{{end}}
