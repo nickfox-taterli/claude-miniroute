@@ -1,6 +1,4 @@
 # Binaries
-miniroute
-miniroutectl
 *.exe
 *.exe~
 *.dll
